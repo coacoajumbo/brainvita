@@ -1,0 +1,1766 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brainvita · KG</title>
+<meta name="description" content="Brainvita peg solitaire by KG — Knowledge in Play. Works offline.">
+<meta name="theme-color" content="#24150c">
+<meta name="color-scheme" content="dark">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Brainvita">
+</head>
+<body>
+<style>
+@font-face { font-family: "Baloo 2"; font-weight: 400 800; font-display: swap; src: url(fonts/baloo2-latin.woff2) format("woff2"); }
+@font-face { font-family: "Hind"; font-weight: 400; font-display: swap; src: url(fonts/hind-400.woff2) format("woff2"); }
+@font-face { font-family: "Hind"; font-weight: 500; font-display: swap; src: url(fonts/hind-500.woff2) format("woff2"); }
+@font-face { font-family: "Hind"; font-weight: 600; font-display: swap; src: url(fonts/hind-600.woff2) format("woff2"); }
+/* app shell: respect notches, no pull-to-refresh, no double-tap zoom */
+/* --safe-area-inset-* is set by the Android app (Capacitor); env() covers browsers and iPhone */
+:root {
+  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  padding-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  padding-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+}
+html, body { overscroll-behavior: none; }
+body { touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/* Layout: one-screen column on a walnut table — title, live stats, the yellow tray as hero, a toolbar under the thumb. */
+:root {
+  color-scheme: dark;
+  --wood-hi: #4a2f1d;
+  --wood-lo: #24150c;
+  --ink: #f8ecd9;
+  --muted: #c7ae8f;
+  --line: rgba(248, 236, 217, 0.14);
+  --chip: rgba(20, 11, 5, 0.42);
+  --sun: #f7c51e;
+  --sun-hi: #ffe36a;
+  --sun-lo: #d39a05;
+  --sun-pit: #b98104;
+  --good: #8fe3a9;
+  --warn: #ffb36b;
+  /* marble colour (switchable) */
+  --m1: #4fb78a;
+  --m2: #145c40;
+  --m3: #031a10;
+  --f-display: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  --f-body: "Hind", "Segoe UI", system-ui, sans-serif;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body {
+  background:
+    radial-gradient(120% 80% at 50% 35%, rgba(255, 196, 120, 0.14), transparent 60%),
+    repeating-linear-gradient(92deg, rgba(0,0,0,0.0) 0 22px, rgba(0,0,0,0.10) 22px 24px, rgba(255,255,255,0.025) 24px 29px, rgba(0,0,0,0) 29px 61px),
+    repeating-linear-gradient(88deg, rgba(0,0,0,0.06) 0 3px, transparent 3px 11px),
+    linear-gradient(180deg, var(--wood-hi), var(--wood-lo));
+  background-color: var(--wood-lo);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 15px;
+  overflow-x: hidden;
+}
+.app {
+  min-height: 100%;
+  box-sizing: border-box;
+  padding-inline: 16px;
+  padding-block: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+header {
+  width: min(100%, 640px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+h1 {
+  font-family: var(--f-display);
+  font-weight: 800;
+  font-size: clamp(30px, 6vw, 42px);
+  line-height: 0.9;
+  margin: 0;
+  letter-spacing: 0.01em;
+  color: var(--sun-hi);
+  text-shadow: 0 2px 0 var(--sun-lo), 0 6px 18px rgba(0,0,0,0.45);
+}
+h1 small {
+  display: block;
+  font-family: var(--f-body);
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-shadow: none;
+  margin-top: 6px;
+}
+/* ---------- home screen ---------- */
+header { position: relative; }
+.backbtn {
+  position: absolute;
+  left: 0; top: 0;
+  width: 40px; height: 40px;
+  padding: 0;
+  justify-content: center;
+}
+header.has-back { padding-left: 52px; box-sizing: border-box; }
+.home {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  overflow-y: auto;
+  background:
+    radial-gradient(120% 70% at 50% 30%, rgba(255, 196, 120, 0.16), transparent 60%),
+    repeating-linear-gradient(92deg, rgba(0,0,0,0.0) 0 22px, rgba(0,0,0,0.10) 22px 24px, rgba(255,255,255,0.025) 24px 29px, rgba(0,0,0,0) 29px 61px),
+    linear-gradient(180deg, var(--wood-hi), var(--wood-lo));
+  background-color: var(--wood-lo);
+  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
+.home.leaving { animation: homeOut .35s ease forwards; }
+.home.entering { animation: homeIn .35s ease; }
+@keyframes homeOut { to { opacity: 0; transform: scale(1.04); } }
+@keyframes homeIn { from { opacity: 0; transform: scale(1.04); } }
+.home-inner {
+  min-height: 100%;
+  box-sizing: border-box;
+  max-width: 420px;
+  margin: 0 auto;
+  padding-inline: 16px;
+  padding-block: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  text-align: center;
+}
+.home h1 { font-size: clamp(52px, 15vw, 72px); }
+.home h1 small { font-size: 13px; }
+.home .titleblock { align-items: center; }
+.mini {
+  width: min(56vw, 210px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  position: relative;
+  background:
+    radial-gradient(circle at 38% 30%, rgba(255,255,255,0.35), transparent 38%),
+    radial-gradient(circle, var(--sun) 0 70%, var(--sun-lo) 100%);
+  box-shadow: 0 14px 30px rgba(0,0,0,0.5), inset 0 3px 2px rgba(255,255,255,0.5), inset 0 -6px 10px rgba(150,90,0,0.45);
+  animation: float 5s ease-in-out infinite;
+}
+.mini i {
+  position: absolute;
+  width: 8.4%; height: 8.4%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 33% 27%, rgba(255,255,255,0.95) 0 8%, rgba(255,255,255,0) 24%),
+    radial-gradient(circle at 46% 44%, var(--m1), var(--m2) 46%, var(--m3) 100%);
+  box-shadow: 0 2px 2px rgba(40,20,0,0.45);
+}
+.mini i.gap { background: radial-gradient(circle at 50% 38%, var(--sun-pit), #f0bd22 70%); box-shadow: inset 0 2px 3px rgba(110,60,0,0.5); }
+@keyframes float { 50% { transform: translateY(-6px) rotate(2deg); } }
+.menu { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 300px; }
+.menu .btn { justify-content: center; padding: 14px 18px 12px; font-size: 16px; }
+.menu .btn.primary { font-size: 18px; padding: 16px 18px 14px; }
+.menu .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.home .modes { align-self: center; }
+.home .toggles { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.btn.exit { color: var(--muted); border-color: transparent; background: transparent; }
+.btn.exit:hover { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .mini { animation: none; } .home.leaving, .home.entering { animation: none; } }
+
+/* KG brand mark: a small gold "marble" monogram + wordmark */
+.titleblock { display: flex; flex-direction: column; gap: 8px; }
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: 600 11px/1 var(--f-body);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.kg {
+  display: inline-grid;
+  place-items: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  font: 800 10px/1 var(--f-display);
+  letter-spacing: 0;
+  color: #3a2405;
+  padding-top: 1px;
+  box-sizing: border-box;
+  background: radial-gradient(circle at 34% 28%, #fff7c9 0 10%, var(--sun-hi) 30%, var(--sun) 60%, var(--sun-lo));
+  box-shadow: 0 1px 3px rgba(0,0,0,0.45), inset 0 -1px 2px rgba(150,90,0,0.5);
+}
+.brand.foot { justify-content: center; margin-top: 14px; font-size: 10px; opacity: 0.85; }
+.brand.foot .kg { width: 18px; height: 18px; font-size: 8.5px; }
+.stats {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.stat {
+  background: var(--chip);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 5px 11px 3px;
+  min-width: 54px;
+  text-align: center;
+}
+.stat b {
+  display: block;
+  font-family: var(--f-display);
+  font-size: 22px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.stat span {
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.stat.pegs b { color: var(--sun-hi); }
+
+/* ---------- board ---------- */
+.stage {
+  position: relative;
+  width: min(100%, 620px, calc(100vh - 280px));
+  min-width: 270px;
+  max-width: 100%;
+  aspect-ratio: 1;
+}
+.board {
+  position: absolute;
+  inset: 0;
+  container-type: size;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.tray {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 38% 30%, rgba(255,255,255,0.35), transparent 38%),
+    radial-gradient(circle at 50% 50%, var(--sun) 0 70%, var(--sun-lo) 100%);
+  box-shadow:
+    0 3cqw 5cqw rgba(0,0,0,0.55),
+    0 1cqw 1.2cqw rgba(0,0,0,0.35),
+    inset 0 0.6cqw 0.4cqw rgba(255,255,255,0.55),
+    inset 0 -1.2cqw 2cqw rgba(150,90,0,0.5);
+}
+/* the gutter where captured marbles roll */
+.tray::before {
+  content: "";
+  position: absolute;
+  inset: 2.6%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--sun-lo) 0 82%, var(--sun) 100%);
+  box-shadow: inset 0 0.8cqw 1.4cqw rgba(120,70,0,0.55), 0 0.3cqw 0 rgba(255,255,255,0.4);
+}
+.plate {
+  position: absolute;
+  inset: 11%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 40% 30%, var(--sun-hi), var(--sun) 58%, #eab50c 100%);
+  box-shadow:
+    0 1.2cqw 1.6cqw rgba(110,60,0,0.45),
+    inset 0 0.5cqw 0.3cqw rgba(255,255,255,0.55),
+    inset 0 -0.8cqw 1.4cqw rgba(170,110,0,0.35);
+}
+.dimple, .marble, .hit {
+  position: absolute;
+  width: var(--sz);
+  height: var(--sz);
+  border-radius: 50%;
+}
+.dimple {
+  --sz: 8.4%;
+  background: radial-gradient(circle at 50% 38%, var(--sun-pit), #f0bd22 62%, var(--sun-hi) 100%);
+  box-shadow: inset 0 0.6cqw 0.9cqw rgba(110,60,0,0.55), 0 0.25cqw 0 rgba(255,255,255,0.45);
+}
+.dimple::after {
+  content: "";
+  position: absolute;
+  inset: -22%;
+  border-radius: 50%;
+  border: 0.5cqw solid rgba(255,255,255,0.9);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity .2s, transform .25s;
+}
+.dimple.target::after {
+  opacity: 1;
+  transform: scale(1);
+  animation: pulse 1.1s ease-in-out infinite;
+}
+.dimple.hint-to::after, .dimple.hint-from::after {
+  opacity: 1;
+  transform: scale(1);
+  border-color: #fff;
+  border-style: dashed;
+  animation: spin 3s linear infinite;
+}
+.dimple.over::after { border-width: 0.9cqw; }
+@keyframes pulse { 50% { transform: scale(0.82); opacity: 0.55; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.marble {
+  --sz: 8.2%;
+  pointer-events: none;
+  z-index: 2;
+  will-change: transform;
+}
+.marble.small { --sz: 7.2%; z-index: 1; }
+.marble.flying { z-index: 5; }
+.glass {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 33% 27%, rgba(255,255,255,0.95) 0 7%, rgba(255,255,255,0) 21%),
+    radial-gradient(circle at 66% 76%, rgba(255,255,255,0.28) 0 7%, rgba(255,255,255,0) 26%),
+    radial-gradient(circle at 46% 44%, var(--m1), var(--m2) 46%, var(--m3) 100%);
+  box-shadow:
+    0 0.7cqw 0.9cqw rgba(40,20,0,0.55),
+    inset 0 -0.6cqw 0.9cqw rgba(0,0,0,0.5),
+    inset 0 0.2cqw 0.3cqw rgba(255,255,255,0.25);
+  transition: transform .22s cubic-bezier(.3,1.6,.5,1), box-shadow .22s;
+}
+.glass::after { /* caustic: light passing through the glass onto the board */
+  content: "";
+  position: absolute;
+  left: 30%; top: 62%; width: 56%; height: 34%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--m1) 70%, white), transparent);
+  opacity: 0.45;
+  filter: blur(0.3cqw);
+}
+.marble.sel .glass {
+  transform: translateY(-1.3cqw) scale(1.12);
+  box-shadow:
+    0 2.4cqw 1.8cqw rgba(40,20,0,0.45),
+    0 0 0 0.5cqw rgba(255,255,255,0.75),
+    0 0 3cqw 0.6cqw color-mix(in srgb, var(--m1) 70%, white),
+    inset 0 -0.6cqw 0.9cqw rgba(0,0,0,0.5);
+}
+.marble.drag .glass { transform: translateY(-1.8cqw) scale(1.2); }
+.marble.stuck .glass { animation: nope .38s; }
+@keyframes nope { 20%,60% { transform: translateX(-0.8cqw); } 40%,80% { transform: translateX(0.8cqw); } }
+
+.hit {
+  --sz: 10%;
+  z-index: 6;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  outline: none;
+}
+.hit:focus-visible { box-shadow: 0 0 0 0.6cqw #fff, 0 0 0 1.1cqw rgba(0,0,0,0.5); }
+.hit.dead { cursor: default; }
+
+.ripple {
+  position: absolute;
+  width: 9%; height: 9%;
+  border-radius: 50%;
+  border: 0.6cqw solid rgba(255,255,255,0.85);
+  pointer-events: none;
+  z-index: 4;
+  animation: ripple .6s ease-out forwards;
+}
+@keyframes ripple { from { transform: scale(0.5); opacity: 1; } to { transform: scale(2.1); opacity: 0; } }
+.spark {
+  position: absolute;
+  width: 1.1%; height: 1.1%;
+  border-radius: 50%;
+  background: #fff;
+  pointer-events: none;
+  z-index: 4;
+  box-shadow: 0 0 1cqw 0.3cqw color-mix(in srgb, var(--m1) 60%, white);
+}
+
+/* ---------- toolbar ---------- */
+.toolbar {
+  width: min(100%, 640px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.btn {
+  font: 600 14px/1 var(--f-body);
+  color: var(--ink);
+  background: var(--chip);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 10px 15px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: background .15s, transform .12s, border-color .15s;
+}
+.btn svg { width: 17px; height: 17px; margin-top: -2px; }
+.btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(248,236,217,0.3); }
+.btn:active { transform: scale(0.95); }
+.btn:focus-visible { outline: 2px solid var(--sun-hi); outline-offset: 2px; }
+.btn:disabled { opacity: 0.4; cursor: default; transform: none; }
+.btn.primary { background: var(--sun); color: #3a2405; border-color: var(--sun-hi); }
+.btn.primary:hover { background: var(--sun-hi); }
+.btn[aria-pressed="false"] { color: var(--muted); }
+.btn[aria-pressed="false"] .on { display: none; }
+.btn[aria-pressed="true"] .off { display: none; }
+.swatches { display: inline-flex; gap: 6px; align-items: center; padding: 0 4px; }
+.sw {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  background: radial-gradient(circle at 33% 28%, #fff 0 8%, transparent 24%), radial-gradient(circle at 46% 44%, var(--a), var(--b) 50%, var(--c));
+  transition: transform .15s;
+}
+.sw:hover { transform: scale(1.12); }
+.sw[aria-checked="true"] { border-color: var(--sun-hi); }
+.sw:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+.status {
+  min-height: 22px;
+  font-size: 14.5px;
+  color: var(--muted);
+  text-align: center;
+  max-width: 640px;
+}
+.status strong { color: var(--ink); font-weight: 600; }
+
+/* ---------- result card ---------- */
+.result {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 20;
+  pointer-events: none;
+}
+.card {
+  pointer-events: auto;
+  width: min(84%, 340px);
+  background: rgba(36, 21, 10, 0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 227, 106, 0.4);
+  border-radius: 22px;
+  padding: 22px 22px 18px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.55);
+  animation: rise .5s cubic-bezier(.2,1.4,.4,1);
+}
+@keyframes rise { from { transform: translateY(20px) scale(0.9); opacity: 0; } }
+.card .rank {
+  font-family: var(--f-display);
+  font-weight: 800;
+  font-size: 40px;
+  line-height: 1;
+  color: var(--sun-hi);
+  text-wrap: balance;
+}
+.card .eyebrow { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.card p { margin: 8px 0 14px; color: var(--ink); }
+.card .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.ladder { display: flex; justify-content: center; gap: 4px; margin: 10px 0 2px; }
+.ladder i {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+}
+.ladder i.lit { background: radial-gradient(circle at 35% 30%, #fff 0 10%, var(--m1) 30%, var(--m2)); }
+/* the card may grow past the board (it floats over the page) but never past the screen */
+.card { max-height: calc(100vh - 24px); overflow-y: auto; box-sizing: border-box; padding-block: 18px 14px; }
+.card p { margin: 6px 0 12px; }
+.card .fact { margin-bottom: 12px; }
+.card .fact {
+  text-align: left;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 227, 106, 0.08);
+  border: 1px dashed rgba(255, 227, 106, 0.35);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.card .fact b { display: block; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sun-hi); margin-bottom: 2px; }
+.card .fact.new { background: rgba(255, 227, 106, 0.16); border-style: solid; animation: glow 1.6s ease-in-out 2; }
+@keyframes glow { 50% { box-shadow: 0 0 0 4px rgba(255,227,106,0.25); } }
+.card .unlock {
+  margin: 0 0 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--sun-hi), var(--sun) 60%, var(--sun-lo));
+  color: #3a2405;
+  font-weight: 600;
+}
+.card .unlock strong { display: block; font-family: var(--f-display); font-size: 24px; line-height: 1.05; }
+/* "Who solved it?" name box on the win card */
+.namebox { margin: 0 0 14px; text-align: left; }
+.namebox label { display: block; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+.namebox .nb { display: flex; gap: 8px; }
+.namebox input, .rename input {
+  flex: 1;
+  min-width: 0;
+  font: 600 16px/1 var(--f-body);
+  color: var(--ink);
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,227,106,0.35);
+  border-radius: 12px;
+  padding: 10px 12px 8px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.namebox input:focus, .rename input:focus { outline: 2px solid var(--sun-hi); outline-offset: 1px; }
+.namebox .btn.saved { background: var(--sun); color: #3a2405; }
+/* Top players in the Hall of Fame */
+.players { display: flex; flex-wrap: wrap; gap: 8px; }
+.player {
+  display: inline-flex; align-items: center; gap: 8px;
+  font: 600 14px/1 var(--f-body);
+  color: var(--ink);
+  background: var(--chip);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px 4px 6px;
+  cursor: pointer;
+}
+.player:hover { border-color: rgba(255,227,106,0.45); }
+.player:focus-visible { outline: 2px solid var(--sun-hi); outline-offset: 2px; }
+.player .medal {
+  display: inline-grid; place-items: center;
+  width: 24px; height: 24px; border-radius: 50%;
+  font: 800 12px/1 var(--f-display); padding-top: 2px; box-sizing: border-box;
+  background: rgba(255,255,255,0.1); color: var(--muted);
+}
+.player:first-child .medal { background: radial-gradient(circle at 34% 28%, #fff7c9 0 10%, var(--sun-hi) 30%, var(--sun) 60%, var(--sun-lo)); color: #3a2405; }
+.player small { color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+.rename { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.rename span { color: var(--muted); font-size: 13.5px; width: 100%; }
+.linkish { background: none; border: 0; padding: 0; color: var(--sun-hi); font: inherit; text-decoration: underline; cursor: pointer; }
+
+/* ---------- board switch ---------- */
+.modes {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  border-radius: 999px;
+  background: var(--chip);
+  border: 1px solid var(--line);
+}
+.mode {
+  font: 600 13.5px/1 var(--f-body);
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background .2s, color .2s;
+}
+.mode svg { width: 14px; height: 14px; margin-top: -2px; }
+.mode[aria-pressed="true"] { background: var(--sun); color: #3a2405; }
+.mode.locked { opacity: 0.75; }
+.mode.locked.nudge { animation: nope .38s; }
+.mode:focus-visible { outline: 2px solid var(--sun-hi); outline-offset: 2px; }
+.mode .prog { font-variant-numeric: tabular-nums; font-weight: 500; font-size: 12px; }
+
+/* ---------- panels (Hall of Fame, History) ---------- */
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 8, 3, 0.62);
+  backdrop-filter: blur(3px);
+  animation: fade .25s ease;
+}
+@keyframes fade { from { opacity: 0; } }
+.panel {
+  width: min(100%, 560px);
+  max-height: calc(100% - 8px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #3b2617, #26170d);
+  border: 1px solid rgba(255, 227, 106, 0.3);
+  border-radius: 24px;
+  padding: 20px 20px 22px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+  animation: rise .45s cubic-bezier(.2,1.3,.4,1);
+}
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.panel h2 { font-family: var(--f-display); font-weight: 800; font-size: 30px; line-height: 1; margin: 0; color: var(--sun-hi); }
+.panel h3 { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin: 18px 0 8px; font-weight: 600; }
+.x { width: 36px; height: 36px; padding: 0; justify-content: center; }
+.unlockbox {
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(255, 227, 106, 0.07);
+  border: 1px solid rgba(255, 227, 106, 0.22);
+}
+.unlockbox .top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.unlockbox .top strong { font-family: var(--f-display); font-size: 20px; }
+.unlockbox .top span { color: var(--muted); font-variant-numeric: tabular-nums; }
+.dots { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin-top: 10px; }
+.dots i {
+  aspect-ratio: 1; max-width: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 38%, #120a04, #3a2616);
+  box-shadow: inset 0 2px 3px rgba(0,0,0,0.6);
+}
+.dots i.lit {
+  background:
+    radial-gradient(circle at 33% 27%, rgba(255,255,255,0.95) 0 8%, rgba(255,255,255,0) 24%),
+    radial-gradient(circle at 46% 44%, var(--m1), var(--m2) 46%, var(--m3) 100%);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.tile { background: var(--chip); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px 8px; }
+.tile b { display: block; font-family: var(--f-display); font-size: 26px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--ink); }
+.tile span { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.tablewrap { overflow-x: auto; }
+table.hof { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; }
+.hof th { text-align: left; font-weight: 600; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.hof td { padding: 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.hof tr:first-child td { color: var(--sun-hi); }
+.pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 8px 1px; border-radius: 999px; background: rgba(255,255,255,0.08); color: var(--muted); }
+.pill.gold { background: var(--sun); color: #3a2405; }
+.empty { color: var(--muted); padding: 14px; text-align: center; border: 1px dashed var(--line); border-radius: 14px; }
+.danger { margin-top: 18px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; color: var(--muted); font-size: 13px; }
+
+/* story cards */
+.story { position: relative; }
+.fcard {
+  border-radius: 20px;
+  padding: 18px 18px 16px;
+  min-height: 230px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(circle at 85% 12%, rgba(255,255,255,0.35), transparent 40%),
+    linear-gradient(150deg, var(--sun-hi), var(--sun) 55%, var(--sun-lo));
+  color: #3a2405;
+  box-shadow: inset 0 -6px 14px rgba(150,90,0,0.35), 0 10px 24px rgba(0,0,0,0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fcard.turn { animation: turn .45s cubic-bezier(.2,.9,.3,1); }
+@keyframes turn { from { transform: perspective(800px) rotateY(-70deg); opacity: 0; } }
+.fcard .num { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600; opacity: 0.75; }
+.fcard .big { font-family: var(--f-display); font-weight: 800; font-size: clamp(44px, 12vw, 64px); line-height: 0.9; color: #5a3602; text-shadow: 0 2px 0 rgba(255,255,255,0.45); }
+.fcard h4 { font-family: var(--f-display); font-size: 22px; line-height: 1.1; margin: 4px 0 0; }
+.fcard p { margin: 0; font-size: 15px; line-height: 1.5; max-width: 60ch; }
+.fcard.sealed {
+  background: repeating-linear-gradient(45deg, #2e1d11 0 12px, #33200f 12px 24px);
+  color: var(--muted);
+  border: 1px dashed rgba(255,227,106,0.3);
+  box-shadow: none;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.fcard.sealed svg { width: 40px; height: 40px; color: var(--sun); }
+.fcard.sealed h4 { color: var(--ink); }
+.storynav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.pips { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+.pips button { width: 10px; height: 10px; border-radius: 50%; border: 0; padding: 0; background: rgba(255,255,255,0.18); cursor: pointer; }
+.pips button.open { background: var(--sun-lo); }
+.pips button[aria-current="true"] { background: var(--sun-hi); transform: scale(1.3); }
+
+canvas#fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 30; }
+
+@media (max-width: 480px) {
+  header { justify-content: center; text-align: center; }
+  .titleblock { align-items: center; }
+  header.has-back { padding-left: 0; }
+  .stats { justify-content: center; }
+  .btn .lbl { display: none; }
+  .btn { padding: 10px 13px 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dimple.target::after, .dimple.hint-to::after, .dimple.hint-from::after { animation: none; }
+}
+</style>
+
+<div class="app">
+  <header class="has-back">
+    <button class="btn backbtn" id="bBack" type="button" aria-label="Back to home" title="Home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="titleblock">
+      <div class="brand"><span class="kg" aria-hidden="true">KG</span><span>Knowledge in Play</span></div>
+      <h1>Brainvita<small>Jump · capture · leave just one</small></h1>
+    </div>
+    <div class="stats" aria-live="polite">
+      <div class="stat pegs"><b id="sPegs">32</b><span>Marbles</span></div>
+      <div class="stat"><b id="sMoves">0</b><span>Jumps</span></div>
+      <div class="stat"><b id="sTime">0:00</b><span>Time</span></div>
+      <div class="stat"><b id="sBest">–</b><span>Best</span></div>
+    </div>
+  </header>
+
+  <div class="modes" role="group" aria-label="Board">
+    <button class="mode" id="mEnglish" type="button" aria-pressed="true">English · 33</button>
+    <button class="mode locked" id="mFrench" type="button" aria-pressed="false">
+      <svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      French · 37 <span class="prog" id="mProg"></span>
+    </button>
+  </div>
+
+  <div class="stage">
+    <div class="board" id="board" aria-label="Brainvita board, 33 holes">
+      <div class="tray"></div>
+      <div class="plate"></div>
+    </div>
+    <div class="result" id="result" hidden></div>
+  </div>
+
+  <div class="status" id="status">Tap a marble, then tap the empty hole two steps away. The marble you jump over is captured.</div>
+
+  <div class="toolbar">
+    <button class="btn" id="bUndo" type="button" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg><span class="lbl">Undo</span>
+    </button>
+    <button class="btn" id="bHint" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg><span class="lbl">Hint</span>
+    </button>
+    <button class="btn" id="bNew" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span class="lbl">New game</span>
+    </button>
+    <button class="btn" id="bHof" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><span class="lbl">Hall of Fame</span>
+    </button>
+    <button class="btn" id="bStory" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M8 7h7M8 11h5"/></svg><span class="lbl">History</span>
+    </button>
+    <button class="btn" id="bSound" type="button" aria-pressed="true" title="Sound effects">
+      <svg class="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+      <svg class="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m22 9-6 6M16 9l6 6"/></svg><span class="lbl">Sound</span>
+    </button>
+    <button class="btn" id="bMusic" type="button" aria-pressed="false" title="Background music">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span class="lbl">Music</span>
+    </button>
+    <span class="swatches" role="radiogroup" aria-label="Marble colour">
+      <button class="sw" type="button" role="radio" aria-checked="true"  aria-label="Emerald"  data-m="#4fb78a,#145c40,#031a10" style="--a:#4fb78a;--b:#145c40;--c:#031a10"></button>
+      <button class="sw" type="button" role="radio" aria-checked="false" aria-label="Sapphire" data-m="#6fb4ff,#1a4fa8,#04122e" style="--a:#6fb4ff;--b:#1a4fa8;--c:#04122e"></button>
+      <button class="sw" type="button" role="radio" aria-checked="false" aria-label="Ruby"     data-m="#ff7a8a,#a3122b,#2a0309" style="--a:#ff7a8a;--b:#a3122b;--c:#2a0309"></button>
+      <button class="sw" type="button" role="radio" aria-checked="false" aria-label="Amethyst" data-m="#c49bff,#5b23a6,#14052b" style="--a:#c49bff;--b:#5b23a6;--c:#14052b"></button>
+    </span>
+  </div>
+</div>
+<section class="home" id="home" aria-label="Home">
+  <div class="home-inner">
+    <div class="titleblock">
+      <div class="brand"><span class="kg" aria-hidden="true">KG</span><span>Knowledge in Play</span></div>
+      <h1>Brainvita<small>Jump · capture · leave just one</small></h1>
+    </div>
+    <div class="mini" id="mini" aria-hidden="true"></div>
+    <div class="menu">
+      <button class="btn primary" type="button" id="hContinue" hidden>Continue game</button>
+      <button class="btn primary" type="button" id="hEnglish">Play regular Brainvita</button>
+      <button class="btn" type="button" id="hFrench">
+        <svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <span id="hFrenchLbl">Original French Brainvita</span>
+      </button>
+      <div class="row2">
+        <button class="btn" type="button" id="hHof">Hall of Fame</button>
+        <button class="btn" type="button" id="hStory">History</button>
+      </div>
+      <div class="toggles">
+        <button class="btn" type="button" id="hSound" aria-pressed="true">Sound</button>
+        <button class="btn" type="button" id="hMusic" aria-pressed="false">Music</button>
+      </div>
+      <button class="btn exit" type="button" id="hExit" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>Exit
+      </button>
+    </div>
+  </div>
+</section>
+<div class="sheet" id="sheet" hidden></div>
+<canvas id="fx"></canvas>
+
+<script>
+(() => {
+"use strict";
+const $ = (id) => document.getElementById(id);
+const boardEl = $("board");
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+};
+
+/* ================= geometry ================= */
+const CENTER = 24, G = 10.5;                        // grid step, % of board
+const CROSS = (r, c) => !((r < 2 || r > 4) && (c < 2 || c > 4));
+const LAYOUTS = {
+  english: { name: "English", holes: 33, ok: CROSS },
+  french: { name: "French", holes: 37, ok: (r, c) => CROSS(r, c) || ((r === 1 || r === 5) && (c === 1 || c === 5)) }
+};
+const UNLOCK_WINS = 10;
+const BRAND_FOOT = '<div class="brand foot"><span class="kg" aria-hidden="true">KG</span><span>Knowledge in Play</span></div>';
+let mode = "english", VALID = [], LINES = [], TRAY_SLOTS = 32;   // LINES: [from, over, to]
+function buildGeometry() {
+  const L = LAYOUTS[mode];
+  VALID = []; LINES = [];
+  for (let i = 0; i < 49; i++) VALID[i] = L.ok((i / 7) | 0, i % 7);
+  for (let a = 0; a < 49; a++) {
+    if (!VALID[a]) continue;
+    const r = (a / 7) | 0, c = a % 7;
+    for (const [dr, dc] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {
+      const r2 = r + 2 * dr, c2 = c + 2 * dc;
+      if (r2 < 0 || r2 > 6 || c2 < 0 || c2 > 6) continue;
+      const b = (r + dr) * 7 + c + dc, t = r2 * 7 + c2;
+      if (VALID[b] && VALID[t]) LINES.push([a, b, t]);
+    }
+  }
+  TRAY_SLOTS = L.holes - 1;
+}
+const centerPct = (i) => [50 + ((i % 7) - 3) * G, 50 + (((i / 7) | 0) - 3) * G];
+const TRAY_R = 43.4;
+const trayPct = (k) => { const a = -Math.PI / 2 + (k + 0.5) * (2 * Math.PI / TRAY_SLOTS); return [50 + TRAY_R * Math.cos(a), 50 + TRAY_R * Math.sin(a)]; };
+function place(el, [x, y]) {
+  const s = parseFloat(getComputedStyle(el).getPropertyValue("--sz")) || 8;
+  el.style.left = (x - s / 2) + "%"; el.style.top = (y - s / 2) + "%";
+}
+
+/* ================= state ================= */
+let pegs, marbles, tray, history, selected, moves, startTime, timerId, over, hint, busy, picking, startHole, recorded;
+let hintsUsed = 0, gameId = 0;
+let dimples = [], hits = [];
+
+function buildHoles() {
+  boardEl.querySelectorAll(".dimple, .hit").forEach((el) => el.remove());
+  dimples = []; hits = [];
+  for (let i = 0; i < 49; i++) {
+    if (!VALID[i]) continue;
+    const d = document.createElement("div"); d.className = "dimple"; boardEl.appendChild(d); place(d, centerPct(i)); dimples[i] = d;
+    const h = document.createElement("button"); h.className = "hit"; h.type = "button"; h.dataset.i = i;
+    boardEl.appendChild(h); place(h, centerPct(i)); hits[i] = h;
+  }
+  boardEl.setAttribute("aria-label", `Brainvita board, ${LAYOUTS[mode].holes} holes`);
+}
+
+/* ================= hall of fame + facts ================= */
+const FACTS = [
+  { at: 0, big: "31", t: "Always 31 jumps", x: "Every jump removes exactly one marble. Going from 32 marbles down to 1 therefore always takes 31 jumps, however you play." },
+  { at: 0, big: "Hi-Q", t: "One game, many names", x: "Brainvita is the name most Indian families know. The same game is Peg Solitaire in Britain, Solitaire in France, and was sold as Hi-Q in America." },
+  { at: 0, big: "33", t: "The English cross", x: "Your board is the English layout: 33 holes in a plus shape. It is the most widely played version today and the one sold as Brainvita in India." },
+  { at: 1, big: "Legend", t: "A prisoner's game?", x: "A popular story says a prisoner in the Bastille invented the game in the 1600s. Historians have found no evidence for it, but the legend has followed the game for centuries." },
+  { at: 2, big: "1697", t: "A princess at play", x: "An engraving by Claude-Auguste Berey, dated 1697, shows the Princess of Soubise playing solitaire at a small table. It is one of the oldest known pictures of the game." },
+  { at: 3, big: "Print", t: "The first written rules", x: "Also in 1697, the Paris magazine Mercure galant described the board and how to play. It is among the earliest printed accounts of the game." },
+  { at: 4, big: "1710", t: "Leibniz approves", x: "The mathematician Gottfried Leibniz wrote about solitaire in 1710. He liked that it can be played backwards: start with one marble and jump to fill the board." },
+  { at: 5, big: "18", t: "The shortest win", x: "If a chain of jumps by one marble counts as a single move, the English board can be solved in 18 moves. Ernest Bergholt published such a solution in 1912." },
+  { at: 6, big: "1964", t: "Proof of 18", x: "In 1964 John Beasley proved that no solution can be shorter than 18 moves. He later wrote a whole book on the game, The Ins and Outs of Peg Solitaire." },
+  { at: 7, big: "3 colours", t: "Counting with colours", x: "Mathematicians paint the holes in diagonal stripes of three colours. Every jump changes the colour counts in a fixed pattern, and that is how they prove some endings are impossible." },
+  { at: 8, big: "1961", t: "Conway's soldiers", x: "In 1961 John Conway studied marbles on an endless board. He proved that however many marbles you line up, you can never jump one more than four rows ahead." },
+  { at: 9, big: "Arms", t: "How experts play", x: "Strong players clear the arms of the cross first and leave the middle for last. Marbles stranded at the tips of the arms are the most common reason a game ends early." },
+  { at: 10, big: "37", t: "The French board", x: "France played on a 37-hole board with four extra corner holes. With the centre empty it can never end with one marble, so players there begin by emptying a different hole. You have unlocked it." }
+];
+function loadHof() {
+  try {
+    const h = JSON.parse(store.get("brainvita.hof") || "null");
+    if (h && Array.isArray(h.wins)) return { played: { english: 0, french: 0, ...(h.played || {}) }, wins: h.wins };
+  } catch (e) {}
+  return { played: { english: 0, french: 0 }, wins: [] };
+}
+let hof = loadHof();
+const saveHof = () => store.set("brainvita.hof", JSON.stringify(hof));
+const englishWins = () => hof.wins.filter((w) => w.board === "english").length;
+const frenchUnlocked = () => englishWins() >= UNLOCK_WINS;
+const factOpen = (f) => englishWins() >= f.at;
+// Player names: kept on this device only, up to 12 letters/numbers/spaces
+const NAME_MAX = 12;
+const cleanName = (s) => String(s || "").replace(/[^\p{L}\p{M}\p{N} .'-]/gu, "").replace(/\s+/g, " ").trim().slice(0, NAME_MAX).trim();
+const lastPlayer = () => cleanName(store.get("brainvita.player")) || "";
+const nameOf = (w) => cleanName(w.name) || "Player";
+function topPlayers() {
+  const counts = new Map();
+  hof.wins.forEach((w) => counts.set(nameOf(w), (counts.get(nameOf(w)) || 0) + 1));
+  return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 6);
+}
+const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+
+function syncModes() {
+  const n = englishWins(), unlocked = n >= UNLOCK_WINS;
+  if (!unlocked && mode === "french") mode = "english";
+  $("mEnglish").setAttribute("aria-pressed", mode === "english");
+  $("mFrench").setAttribute("aria-pressed", mode === "french");
+  $("mFrench").classList.toggle("locked", !unlocked);
+  $("mFrench").querySelector(".lock").style.display = unlocked ? "none" : "";
+  $("mProg").textContent = unlocked ? "" : `${Math.min(n, UNLOCK_WINS)}/${UNLOCK_WINS}`;
+  $("mFrench").setAttribute("aria-label", unlocked ? "French board, 37 holes" : `French board, locked. ${n} of ${UNLOCK_WINS} one-marble English wins`);
+}
+function switchMode(m) {
+  if (m === "french" && !frenchUnlocked()) {
+    const b = $("mFrench"); b.classList.remove("nudge"); void b.offsetWidth; b.classList.add("nudge");
+    Sound.bump();
+    const left = UNLOCK_WINS - englishWins();
+    setStatus(`The French board unlocks after <strong>${UNLOCK_WINS}</strong> one-marble finishes on the English board. <strong>${left}</strong> to go.`);
+    return;
+  }
+  if (m === mode) return;
+  mode = m; store.set("brainvita.mode", m);
+  buildGeometry(); buildHoles(); syncModes();
+  Sound.click(); newGame();
+}
+
+function openSheet(html, onReady) {
+  const s = $("sheet");
+  s.innerHTML = html; s.hidden = false;
+  s.onclick = (e) => { if (e.target === s || e.target.closest("[data-close]")) closeSheet(); };
+  onReady && onReady(s);
+  const first = s.querySelector("[data-close]"); first && first.focus();
+}
+function closeSheet() { $("sheet").hidden = true; $("sheet").innerHTML = ""; if (!$("home").hidden) syncHome(); }
+const closeBtn = '<button class="btn x" type="button" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>';
+
+function showHof() {
+  Sound.click();
+  const n = englishWins(), unlocked = n >= UNLOCK_WINS;
+  const played = hof.played.english + hof.played.french;
+  const genius = hof.wins.filter((w) => w.centre).length;
+  const fr = hof.wins.filter((w) => w.board === "french").length;
+  const top = hof.wins.slice().sort((a, b) => a.ms - b.ms || a.jumps - b.jumps).slice(0, 10);
+  const rows = top.map((w, k) => `<tr><td>${k + 1}</td><td>${esc(nameOf(w))}</td><td>${w.board === "french" ? "French" : "English"}</td>
+      <td>${new Date(w.d).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</td>
+      <td>${fmtTime(w.ms)}</td><td>${w.jumps}</td>
+      <td>${w.centre ? '<span class="pill gold">Genius</span>' : '<span class="pill">One marble</span>'}${w.hints ? ' <span class="pill">hinted</span>' : ""}</td></tr>`).join("");
+  openSheet(`<div class="panel" role="dialog" aria-modal="true" aria-labelledby="hofT">
+    <div class="panel-head"><h2 id="hofT">Hall of Fame</h2>${closeBtn}</div>
+    <div class="unlockbox">
+      <div class="top"><strong>${unlocked ? "French board unlocked" : "Unlock the French board"}</strong>
+        <span>${Math.min(n, UNLOCK_WINS)} / ${UNLOCK_WINS} one-marble English wins</span></div>
+      <div class="dots" aria-hidden="true">${Array.from({ length: UNLOCK_WINS }, (_, i) => `<i class="${i < n ? "lit" : ""}"></i>`).join("")}</div>
+      ${unlocked ? `<div style="margin-top:10px"><button class="btn primary" type="button" id="hGoFr">Play the French board</button></div>`
+        : `<div style="margin-top:8px;color:var(--muted);font-size:13.5px">Each win also reveals one History card.</div>`}
+    </div>
+    <h3>Totals</h3>
+    <div class="tiles">
+      <div class="tile"><b>${played}</b><span>Games played</span></div>
+      <div class="tile"><b>${hof.wins.length}</b><span>One-marble wins</span></div>
+      <div class="tile"><b>${genius}</b><span>Genius finishes</span></div>
+      <div class="tile"><b>${unlocked ? fr : "–"}</b><span>French wins</span></div>
+    </div>
+    ${hof.wins.length ? `<h3>Top players</h3>
+    <div class="players" id="hPlayers">${topPlayers().map(([n, c], i) => `<button class="player" type="button" data-name="${esc(n)}" title="Rename"><span class="medal">${i + 1}</span>${esc(n)} <small>${c} win${c > 1 ? "s" : ""}</small></button>`).join("")}</div>
+    <div id="hRename"></div>` : ""}
+    <h3>Fastest one-marble finishes</h3>
+    ${top.length ? `<div class="tablewrap"><table class="hof"><thead><tr><th>#</th><th>Player</th><th>Board</th><th>Date</th><th>Time</th><th>Jumps</th><th>Finish</th></tr></thead><tbody>${rows}</tbody></table></div>`
+      : `<div class="empty">No one-marble finishes yet. Your first one will appear here.</div>`}
+    <div class="danger" id="hDanger"><button class="btn" type="button" id="hReset">Reset progress</button><span>Progress is saved on this device only.</span></div>
+    ${BRAND_FOOT}
+  </div>`, (s) => {
+    const pl = s.querySelector("#hPlayers");
+    if (pl) pl.onclick = (e) => {
+      const b = e.target.closest(".player"); if (!b) return;
+      const old = b.dataset.name;
+      $("hRename").innerHTML = `<form class="rename" id="rnForm" autocomplete="off"><span>Rename ${esc(old)} in all their wins</span>
+        <input id="rnIn" maxlength="${NAME_MAX}" value="${esc(old)}" aria-label="New name">
+        <button class="btn primary" type="submit">Rename</button><button class="btn" type="button" id="rnNo">Cancel</button></form>`;
+      $("rnIn").focus(); $("rnIn").select();
+      $("rnNo").onclick = () => { $("hRename").innerHTML = ""; };
+      $("rnForm").onsubmit = (ev) => {
+        ev.preventDefault();
+        const nn = cleanName($("rnIn").value); if (!nn) return;
+        hof.wins.forEach((w) => { if (nameOf(w) === old) w.name = nn; });
+        if (lastPlayer() === old) store.set("brainvita.player", nn);
+        saveHof(); Sound.pick(CENTER); showHof();
+      };
+    };
+    const go = s.querySelector("#hGoFr"); if (go) go.onclick = () => { closeSheet(); if (!$("home").hidden) hideHome(); switchMode("french"); };
+    s.querySelector("#hReset").onclick = () => {
+      $("hDanger").innerHTML = `<span>Erase all wins and lock the French board again?</span>
+        <button class="btn" type="button" id="hYes">Erase everything</button><button class="btn" type="button" id="hNo">Keep</button>`;
+      $("hYes").onclick = () => { hof = { played: { english: 0, french: 0 }, wins: [] }; saveHof(); store.set("brainvita.best", ""); if (mode === "french") { mode = "english"; buildGeometry(); buildHoles(); newGame(); } syncModes(); refresh(); showHof(); };
+      $("hNo").onclick = showHof;
+    };
+  });
+}
+
+let storyIdx = 0;
+function showStory(startAt) {
+  Sound.click();
+  const opened = FACTS.filter(factOpen).length;
+  storyIdx = startAt != null ? startAt : Math.max(0, opened - 1);
+  const lockSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+  openSheet(`<div class="panel" role="dialog" aria-modal="true" aria-labelledby="stT">
+    <div class="panel-head"><h2 id="stT">History</h2>${closeBtn}</div>
+    <div class="story" id="stCard" aria-live="polite"></div>
+    <div class="storynav">
+      <button class="btn" type="button" id="stPrev" aria-label="Previous card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+      <div class="pips" id="stPips"></div>
+      <button class="btn" type="button" id="stNext" aria-label="Next card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+    </div>
+    <div style="text-align:center;color:var(--muted);font-size:13px;margin-top:10px">${opened} of ${FACTS.length} cards revealed. Each one-marble English win reveals the next.</div>
+  </div>`, () => {
+    const draw = (anim) => {
+      const f = FACTS[storyIdx], open = factOpen(f);
+      $("stCard").innerHTML = open
+        ? `<div class="fcard${anim ? " turn" : ""}"><div class="num">Card ${storyIdx + 1} of ${FACTS.length}</div><div class="big">${f.big}</div><h4>${f.t}</h4><p>${f.x}</p></div>`
+        : `<div class="fcard sealed${anim ? " turn" : ""}">${lockSvg}<h4>Card ${storyIdx + 1} is sealed</h4><p>Win ${f.at} one-marble game${f.at > 1 ? "s" : ""} on the English board to reveal it.</p></div>`;
+      $("stPips").innerHTML = FACTS.map((x, i) => `<button type="button" class="${factOpen(x) ? "open" : ""}" aria-label="Card ${i + 1}" aria-current="${i === storyIdx}" data-i="${i}"></button>`).join("");
+      $("stPrev").disabled = storyIdx === 0; $("stNext").disabled = storyIdx === FACTS.length - 1;
+    };
+    const go = (i) => { if (i < 0 || i >= FACTS.length || i === storyIdx) return; storyIdx = i; Sound.page(); draw(true); };
+    $("stPrev").onclick = () => go(storyIdx - 1);
+    $("stNext").onclick = () => go(storyIdx + 1);
+    $("stPips").onclick = (e) => { const b = e.target.closest("button"); if (b) go(+b.dataset.i); };
+    draw(true);
+  });
+}
+
+function makeMarble() {
+  const m = document.createElement("div"); m.className = "marble";
+  m.innerHTML = '<div class="glass"></div>'; boardEl.appendChild(m); return m;
+}
+
+function newGame(animate = true) {
+  boardEl.querySelectorAll(".marble").forEach((m) => m.remove());
+  pegs = new Uint8Array(49); marbles = []; tray = []; history = [];
+  selected = -1; moves = 0; over = false; hint = null; hintPlan = null; busy = 0; hintsUsed = 0; recorded = false;
+  picking = mode === "french"; startHole = picking ? -1 : CENTER; gameId = Date.now();
+  clearInterval(timerId); timerId = null; startTime = 0; tick();
+  $("result").hidden = true; $("result").innerHTML = "";
+  let k = 0;
+  for (let i = 0; i < 49; i++) {
+    if (!VALID[i] || i === startHole) continue;
+    pegs[i] = 1;
+    const m = makeMarble(); place(m, centerPct(i)); marbles[i] = m;
+    if (animate && !reduced) {
+      const [x, y] = centerPct(i), dist = Math.hypot(x - 50, y - 50);
+      m.animate([{ transform: "translateY(-120%) scale(0.2)", opacity: 0 }, { transform: "translateY(10%) scale(1.05)", opacity: 1, offset: 0.7 }, { transform: "none", opacity: 1 }],
+        { duration: 520, delay: dist * 14 + (k++ % 3) * 10, easing: "cubic-bezier(.3,.7,.4,1)", fill: "backwards" });
+    }
+  }
+  refresh();
+  setStatus(picking ? "<strong>French board:</strong> every hole is full. Tap the marble you want to remove to make the first empty hole."
+    : "Tap a marble, then tap the empty hole two steps away. The marble you jump over is captured.");
+  if (animate) Sound.cascade();
+}
+
+function removeStart(i) {
+  picking = false; startHole = i;
+  pegs[i] = 0;
+  const m = marbles[i]; marbles[i] = null;
+  m.classList.add("flying");
+  m.animate([{ transform: "none", opacity: 1 }, { transform: "translateY(-60%) scale(1.3)", opacity: 1, offset: 0.4 }, { transform: "translateY(-260%) scale(0.4)", opacity: 0 }],
+    { duration: reduced ? 120 : 520, easing: "cubic-bezier(.3,.1,.4,1)" }).onfinish = () => m.remove();
+  Sound.pick(i); Sound.hint();
+  refresh();
+  setStatus("Good. Now jump marbles into the empty hole. Finish with one marble in this same hole for a <strong>Genius</strong> rank.");
+}
+
+const pegCount = () => pegs.reduce((a, b) => a + b, 0);
+const movesFrom = (a) => LINES.filter(([f, o, t]) => f === a && pegs[f] && pegs[o] && !pegs[t]);
+const allMoves = () => LINES.filter(([f, o, t]) => pegs[f] && pegs[o] && !pegs[t]);
+
+function refresh() {
+  for (let i = 0; i < 49; i++) {
+    if (!VALID[i]) continue;
+    dimples[i].classList.remove("target", "hint-to", "hint-from", "over");
+    const has = !!pegs[i];
+    hits[i].setAttribute("aria-label", `Row ${((i / 7) | 0) + 1}, column ${(i % 7) + 1}, ${has ? "marble" : "empty"}`);
+    if (marbles[i]) marbles[i].classList.toggle("sel", i === selected);
+  }
+  if (selected >= 0) movesFrom(selected).forEach(([, , t]) => dimples[t].classList.add("target"));
+  if (hint) { dimples[hint[0]].classList.add("hint-from"); dimples[hint[2]].classList.add("hint-to"); }
+  $("sPegs").textContent = pegCount();
+  $("sMoves").textContent = moves;
+  $("bUndo").disabled = history.length === 0;
+  const best = store.get(mode === "english" ? "brainvita.best" : "brainvita.best.french");
+  $("sBest").textContent = best ? best : "–";
+}
+function setStatus(html) { $("status").innerHTML = html; }
+function fmtTime(ms) { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
+function tick() { $("sTime").textContent = startTime ? fmtTime(Date.now() - startTime) : "0:00"; }
+
+/* ================= moves ================= */
+function select(i) {
+  selected = i; hint = null; refresh();
+  if (i >= 0) {
+    const n = movesFrom(i).length;
+    setStatus(`<strong>${n} jump${n > 1 ? "s" : ""}</strong> available from here. Tap a glowing hole.`);
+  }
+}
+
+function doMove(m, opts = {}) {
+  const [f, o, t] = m;
+  if (!startTime) { startTime = Date.now(); timerId = setInterval(tick, 500); }
+  pegs[f] = 0; pegs[o] = 0; pegs[t] = 1;
+  const mover = marbles[f], victim = marbles[o];
+  marbles[t] = mover; marbles[f] = null; marbles[o] = null;
+  history.push(m); moves++;
+  hint = (hintPlan && hintPlan.length && sameMove(hintPlan[0], m)) ? (hintPlan.shift(), null) : (hintPlan = null, null);
+  selected = -1;
+  mover.classList.remove("sel", "drag");
+
+  const rect = boardEl.getBoundingClientRect(), W = rect.width;
+  const [fx, fy] = opts.fromPx || centerPct(f).map((v) => v * W / 100);
+  const [tx, ty] = centerPct(t).map((v) => v * W / 100);
+  place(mover, centerPct(t));
+  const dx = fx - tx, dy = fy - ty;
+  const D = reduced ? 120 : (opts.fromPx ? 220 : 430);
+  mover.classList.add("flying");
+  const lift = opts.fromPx ? W * 0.02 : W * 0.075;
+  const hop = mover.animate([
+    { transform: `translate(${dx}px, ${dy}px) scale(${opts.fromPx ? 1.15 : 1.1})` },
+    { transform: `translate(${dx / 2}px, ${dy / 2 - lift}px) scale(1.28)`, offset: 0.48 },
+    { transform: "translate(0,0) scale(0.92, 0.9)", offset: 0.86 },
+    { transform: "none" }
+  ], { duration: D, easing: "cubic-bezier(.33,.0,.4,1)" });
+  hop.onfinish = () => mover.classList.remove("flying");
+  busy++;
+  setTimeout(() => { busy--; }, D * 0.9);
+
+  Sound.jump(f, t, moves);
+  setTimeout(() => { landFx(t); Sound.land(t); }, D * 0.84);
+
+  // captured marble pops out and rolls to the gutter
+  const slot = tray.length; tray.push(victim);
+  const [ox, oy] = centerPct(o).map((v) => v * W / 100);
+  victim.classList.add("small", "flying");
+  place(victim, trayPct(slot));
+  const vr = victim.getBoundingClientRect();
+  const vx = vr.left - rect.left + vr.width / 2, vy = vr.top - rect.top + vr.height / 2;
+  const ex = ox - vx, ey = oy - vy;
+  const cap = victim.animate([
+    { transform: `translate(${ex}px, ${ey}px) scale(1.14)` },
+    { transform: `translate(${ex}px, ${ey - W * 0.03}px) scale(1.25)`, offset: 0.18 },
+    { transform: `translate(${ex * 0.35}px, ${ey * 0.35 - W * 0.06}px) scale(1.05) rotate(240deg)`, offset: 0.62 },
+    { transform: "translate(0,0) scale(1) rotate(540deg)", offset: 0.9 },
+    { transform: "none" }
+  ], { duration: reduced ? 150 : 760, delay: reduced ? 0 : D * 0.42, easing: "cubic-bezier(.45,.05,.3,1)", fill: "backwards" });
+  cap.onfinish = () => victim.classList.remove("flying");
+  setTimeout(() => Sound.capture(slot), (reduced ? 0 : D * 0.42) + 50);
+  setTimeout(() => Sound.settle(), (reduced ? 150 : D * 0.42 + 700));
+
+  refresh();
+  const left = pegCount(), avail = allMoves().length;
+  if (avail === 0) setTimeout(finish, D + 380);
+  else setStatus(left <= 4 ? `<strong>${left} marbles left.</strong> Every jump counts now.` : `${avail} possible jump${avail > 1 ? "s" : ""} on the board.`);
+}
+
+function undo() {
+  if (!history.length || busy) return;
+  Sound.undo();
+  const [f, o, t] = history.pop(); moves--;
+  pegs[f] = 1; pegs[o] = 1; pegs[t] = 0;
+  const mover = marbles[t], victim = tray.pop();
+  marbles[f] = mover; marbles[o] = victim; marbles[t] = null;
+  const rect = boardEl.getBoundingClientRect(), W = rect.width;
+  const slide = (el, toPct, cls) => {
+    const before = el.getBoundingClientRect();
+    if (cls) el.classList.remove(cls);
+    place(el, toPct);
+    const after = el.getBoundingClientRect();
+    const dx = before.left + before.width / 2 - after.left - after.width / 2, dy = before.top + before.height / 2 - after.top - after.height / 2;
+    el.classList.add("flying");
+    el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: `translate(${dx / 2}px, ${dy / 2 - W * 0.04}px) scale(1.15)` }, { transform: "none" }],
+      { duration: reduced ? 100 : 380, easing: "cubic-bezier(.3,.1,.3,1)" }).onfinish = () => el.classList.remove("flying");
+  };
+  slide(mover, centerPct(f));
+  slide(victim, centerPct(o), "small");
+  selected = -1; hint = null; hintPlan = null;
+  if (over) { over = false; $("result").hidden = true; $("result").innerHTML = ""; if (!timerId && startTime) timerId = setInterval(tick, 500); }
+  refresh();
+  setStatus("Jump taken back.");
+}
+
+function landFx(t) {
+  if (reduced) return;
+  const [x, y] = centerPct(t);
+  const r = document.createElement("div"); r.className = "ripple";
+  r.style.left = (x - 4.5) + "%"; r.style.top = (y - 4.5) + "%";
+  boardEl.appendChild(r); setTimeout(() => r.remove(), 650);
+  for (let k = 0; k < 7; k++) {
+    const s = document.createElement("div"); s.className = "spark";
+    s.style.left = (x - 0.55) + "%"; s.style.top = (y - 0.55) + "%";
+    boardEl.appendChild(s);
+    const a = Math.random() * Math.PI * 2, d = 4 + Math.random() * 5;
+    const W = boardEl.clientWidth;
+    s.animate([{ transform: "translate(0,0) scale(1)", opacity: 1 }, { transform: `translate(${Math.cos(a) * d * W / 100}px, ${Math.sin(a) * d * W / 100}px) scale(0)`, opacity: 0 }],
+      { duration: 420 + Math.random() * 260, easing: "cubic-bezier(.1,.7,.3,1)" }).onfinish = () => s.remove();
+  }
+}
+
+/* ================= finish ================= */
+const RANKS = [
+  [1, "Genius", "One marble, right in the centre. The perfect game."],
+  [1, "Outstanding", "Only one marble left. Now try to finish in the centre."],
+  [2, "Excellent", "Two marbles left. You are one idea away."],
+  [3, "Very good", "Three marbles left. Clear the corners earlier next time."],
+  [4, "Good", "Four marbles left. Keep marbles together so they can keep jumping."],
+  [5, "Average", "Five marbles left. Work the arms of the cross before the middle."],
+  [99, "Keep practising", "Stranded marbles cannot jump. Try to empty one arm at a time."]
+];
+function finish() {
+  over = true; clearInterval(timerId); timerId = null;
+  const left = pegCount(), centre = left === 1 && !!pegs[startHole];
+  const rank = centre ? RANKS[0] : RANKS.find((r, i) => i > 0 && left <= r[0]);
+  const geniusText = mode === "english" ? RANKS[0][2] : "One marble, back in the very hole you emptied first. The perfect French game.";
+  const bestKey = mode === "english" ? "brainvita.best" : "brainvita.best.french";
+  const prev = parseInt(store.get(bestKey) || "99", 10);
+  const isBest = left < prev;
+  if (isBest) store.set(bestKey, String(left));
+  const ms = startTime ? Date.now() - startTime : 0;
+
+  // Hall of Fame: one entry per game, even if the player undoes and finishes again
+  const winsBefore = englishWins();
+  if (!recorded) { hof.played[mode]++; recorded = true; }
+  if (left === 1 && !hof.wins.some((w) => w.game === gameId)) {
+    hof.wins.push({ game: gameId, board: mode, d: Date.now(), ms, jumps: moves, centre, hints: hintsUsed > 0, name: lastPlayer() || "Player" });
+  }
+  saveHof();
+  const winsAfter = englishWins();
+  const newFact = winsAfter > winsBefore ? FACTS.find((f) => f.at === winsAfter) : null;
+  const justUnlocked = winsBefore < UNLOCK_WINS && winsAfter >= UNLOCK_WINS;
+  const pool = FACTS.filter(factOpen);
+  const fact = newFact || pool[Math.floor(Math.random() * pool.length)];
+  syncModes();
+  refresh();
+
+  const lit = Math.max(0, 7 - Math.min(left, 7)) + (centre ? 1 : 0);
+  const progress = mode === "english" && !frenchUnlocked() && left === 1
+    ? `<br><small style="color:var(--muted)">French board: ${winsAfter} / ${UNLOCK_WINS} wins</small>` : "";
+  $("result").innerHTML = `<div class="card" role="dialog" aria-label="Game over">
+      <div class="eyebrow">${left === 1 ? "Solved" : "No jumps left"}</div>
+      <div class="rank">${rank[1]}</div>
+      <div class="ladder" aria-hidden="true">${Array.from({ length: 7 }, (_, i) => `<i class="${i < lit ? "lit" : ""}"></i>`).join("")}</div>
+      <p>${centre ? geniusText : rank[2]}<br><small style="color:var(--muted)">${moves} jumps · ${fmtTime(ms)}${isBest ? " · new personal best" : ""}</small>${progress}</p>
+      ${left === 1 ? `<form class="namebox" id="cNameForm" autocomplete="off">
+        <label for="cNameIn">Who solved it?</label>
+        <div class="nb"><input id="cNameIn" maxlength="${NAME_MAX}" placeholder="Your name" value="${esc(lastPlayer())}" enterkeyhint="done">
+        <button class="btn" type="submit" id="cNameSave">Save</button></div>
+      </form>` : ""}
+      ${justUnlocked ? `<div class="unlock"><strong>French board unlocked</strong>Ten one-marble wins. The 37-hole board is now yours.</div>` : ""}
+      ${fact ? `<div class="fact${newFact ? " new" : ""}"><b>${newFact ? "New history card revealed" : "Did you know?"}</b>${esc(fact.x)} <button class="linkish" type="button" id="cStory">More history</button></div>` : ""}
+      <div class="row">
+        ${justUnlocked ? `<button class="btn primary" type="button" id="cFrench">Play French board</button>` : `<button class="btn primary" type="button" id="cNew">Play again</button>`}
+        <button class="btn" type="button" id="cUndo">Undo last jump</button>
+        <button class="btn" type="button" id="cHome"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Home</button>
+      </div>${BRAND_FOOT}</div>`;
+  $("result").hidden = false;
+  if ($("cNew")) $("cNew").onclick = () => { Sound.click(); newGame(); };
+  if ($("cFrench")) $("cFrench").onclick = () => switchMode("french");
+  if ($("cStory")) $("cStory").onclick = () => showStory(FACTS.indexOf(fact));
+  $("cUndo").onclick = undo;
+  $("cHome").onclick = () => showHome();
+  if ($("cNameForm")) {
+    const thisGame = gameId;
+    $("cNameIn").oninput = () => { $("cNameSave").textContent = "Save"; $("cNameSave").classList.remove("saved"); };
+    $("cNameForm").onsubmit = (e) => {
+      e.preventDefault();
+      const name = cleanName($("cNameIn").value);
+      if (!name) { $("cNameIn").focus(); return; }
+      const w = hof.wins.find((x) => x.game === thisGame);
+      if (w) { w.name = name; saveHof(); }
+      store.set("brainvita.player", name);
+      $("cNameIn").value = name; $("cNameIn").blur();
+      $("cNameSave").textContent = "Saved"; $("cNameSave").classList.add("saved");
+      Sound.pick(CENTER);
+    };
+  }
+  setStatus(`Game over with <strong>${left} marble${left > 1 ? "s" : ""}</strong> left.`);
+  if (justUnlocked) { Sound.unlock(); confetti(420); setTimeout(() => confetti(200), 900); }
+  else if (left <= 2) { Sound.win(left === 1); confetti(left === 1 ? 260 : 110); }
+  else Sound.end();
+}
+
+/* ================= solver (hints) ================= */
+let hintPlan = null;
+const sameMove = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+function solve(target, budget) {
+  const p = pegs.slice(); let key = 0, n = 0;
+  for (let i = 0; i < 49; i++) if (p[i]) { key += 2 ** i; n++; }
+  const dead = new Set(), path = []; let nodes = 0;
+  const dfs = () => {
+    if (n <= target) return true;
+    if (dead.has(key)) return false;
+    if (++nodes > budget) throw 0;
+    for (const m of LINES) {
+      const [a, b, t] = m;
+      if (p[a] && p[b] && !p[t]) {
+        p[a] = p[b] = 0; p[t] = 1; const dk = 2 ** t - 2 ** a - 2 ** b; key += dk; n--; path.push(m);
+        if (dfs()) return true;
+        path.pop(); p[a] = p[b] = 1; p[t] = 0; key -= dk; n++;
+      }
+    }
+    dead.add(key); return false;
+  };
+  try { return dfs() ? path : false; } catch (e) { return null; }
+}
+function showHint() {
+  if (over || busy) return;
+  Sound.click();
+  if (picking) { setStatus("First tap a marble to remove it. That hole becomes your starting gap."); return; }
+  if (!allMoves().length) return;
+  if (!hintPlan || !hintPlan.length) {
+    setStatus("Thinking…");
+    setTimeout(() => {
+      let plan = null, target = 1;
+      for (; target <= 4 && !plan; target++) plan = solve(target, target === 1 ? 600000 : 200000) || null;
+      target--;
+      if (!plan) { setStatus("This position is too tangled for a quick hint. Try Undo."); return; }
+      hintPlan = plan;
+      present(target);
+    }, 30);
+  } else present(1);
+  function present(target) {
+    hint = hintPlan[0]; selected = -1; hintsUsed++; refresh();
+    Sound.hint();
+    setStatus(target === 1 ? "Move the dashed marble into the dashed hole. A one-marble finish is still possible."
+      : `A single marble is out of reach now. This line leaves <strong>${target}</strong>.`);
+  }
+}
+
+/* ================= input ================= */
+let drag = null;
+function cellAt(clientX, clientY) {
+  const r = boardEl.getBoundingClientRect();
+  const x = (clientX - r.left) / r.width * 100, y = (clientY - r.top) / r.height * 100;
+  const c = Math.round((x - 50) / G + 3), rr = Math.round((y - 50) / G + 3);
+  if (c < 0 || c > 6 || rr < 0 || rr > 6) return -1;
+  const i = rr * 7 + c;
+  if (!VALID[i]) return -1;
+  const [cx, cy] = centerPct(i);
+  return Math.hypot(x - cx, y - cy) < G * 0.62 ? i : -1;
+}
+function tapCell(i) {
+  if (over || busy || i < 0) return;
+  Sound.wake();
+  if (picking) { if (pegs[i]) removeStart(i); return; }
+  if (pegs[i]) {
+    if (selected === i) { select(-1); Sound.deselect(); return; }
+    if (movesFrom(i).length) { select(i); Sound.pick(i); }
+    else { stuck(i); }
+  } else if (selected >= 0) {
+    const m = movesFrom(selected).find((mv) => mv[2] === i);
+    if (m) doMove(m); else { select(-1); Sound.deselect(); }
+  }
+}
+function stuck(i) {
+  const m = marbles[i]; if (!m) return;
+  m.classList.remove("stuck"); void m.offsetWidth; m.classList.add("stuck");
+  setTimeout(() => m.classList.remove("stuck"), 400);
+  Sound.bump();
+  if (selected >= 0) select(-1);
+  setStatus("That marble has nothing to jump over.");
+}
+
+boardEl.addEventListener("pointerdown", (e) => {
+  if (e.button > 0) return;
+  Sound.wake();
+  const i = cellAt(e.clientX, e.clientY);
+  if (i < 0 || over || busy) { if (selected >= 0 && i < 0) { select(-1); } return; }
+  if (picking) { tapCell(i); e.preventDefault(); return; }
+  if (pegs[i] && movesFrom(i).length) {
+    const was = selected === i;
+    if (!was) { select(i); Sound.pick(i); }
+    drag = { i, x: e.clientX, y: e.clientY, was, moved: false, over: -1, id: e.pointerId };
+    boardEl.setPointerCapture(e.pointerId);
+  } else tapCell(i);
+  e.preventDefault();
+});
+boardEl.addEventListener("pointermove", (e) => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!drag.moved && Math.hypot(dx, dy) < 7) return;
+  drag.moved = true;
+  const m = marbles[drag.i];
+  m.classList.add("drag", "flying");
+  m.style.transform = `translate(${dx}px, ${dy}px)`;
+  const c = cellAt(e.clientX, e.clientY);
+  const valid = movesFrom(drag.i).some((mv) => mv[2] === c) ? c : -1;
+  if (valid !== drag.over) {
+    if (drag.over >= 0) dimples[drag.over].classList.remove("over");
+    if (valid >= 0) { dimples[valid].classList.add("over"); Sound.tick(); }
+    drag.over = valid;
+  }
+});
+function endDrag(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const d = drag; drag = null;
+  const m = marbles[d.i];
+  if (!d.moved) { if (d.was) { select(-1); Sound.deselect(); } return; }
+  const dx = e.clientX - d.x, dy = e.clientY - d.y;
+  m.style.transform = "";
+  if (d.over >= 0) dimples[d.over].classList.remove("over");
+  const mv = e.type === "pointerup" && movesFrom(d.i).find((x) => x[2] === d.over);
+  if (mv) {
+    const W = boardEl.clientWidth, [sx, sy] = centerPct(d.i).map((v) => v * W / 100);
+    doMove(mv, { fromPx: [sx + dx, sy + dy] });
+  } else {
+    m.classList.remove("drag");
+    m.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 260, easing: "cubic-bezier(.3,1.5,.5,1)" })
+      .onfinish = () => m.classList.remove("flying");
+    Sound.deselect();
+  }
+}
+boardEl.addEventListener("pointerup", endDrag);
+boardEl.addEventListener("pointercancel", endDrag);
+// keyboard: hit buttons fire click with detail 0
+boardEl.addEventListener("click", (e) => {
+  const h = e.target.closest(".hit");
+  if (h && e.detail === 0) tapCell(+h.dataset.i);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.target && e.target.tagName === "INPUT" && e.key !== "Escape") return;   // typing a name
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); }
+  else if (e.key === "Escape" && !$("sheet").hidden) { closeSheet(); }
+  else if (e.key === "Escape" && selected >= 0) { select(-1); }
+  else if (!$("sheet").hidden) { if (e.key === "ArrowRight") $("stNext")?.click(); if (e.key === "ArrowLeft") $("stPrev")?.click(); }
+  else if ($("home").hidden && e.key.toLowerCase() === "h" && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== "INPUT") showHint();
+});
+
+$("bUndo").onclick = undo;
+$("bHint").onclick = showHint;
+$("bNew").onclick = () => { Sound.click(); newGame(); };
+$("bHof").onclick = () => { Sound.wake(); showHof(); };
+$("bStory").onclick = () => { Sound.wake(); showStory(); };
+$("mEnglish").onclick = () => { Sound.wake(); switchMode("english"); };
+$("mFrench").onclick = () => { Sound.wake(); switchMode("french"); };
+$("bSound").onclick = (e) => { Sound.wake(); Sound.sfx = !Sound.sfx; e.currentTarget.setAttribute("aria-pressed", Sound.sfx); store.set("brainvita.sfx", Sound.sfx ? "1" : "0"); Sound.click(); };
+$("bMusic").onclick = (e) => { Sound.wake(); const on = Sound.toggleMusic(); e.currentTarget.setAttribute("aria-pressed", on); store.set("brainvita.music", on ? "1" : "0"); };
+document.querySelectorAll(".sw").forEach((sw) => sw.onclick = () => {
+  setMarble(sw.dataset.m); store.set("brainvita.marble", sw.dataset.m); Sound.wake(); Sound.pick(CENTER);
+});
+function setMarble(spec) {
+  const [a, b, c] = spec.split(",");
+  const root = document.documentElement.style;
+  root.setProperty("--m1", a); root.setProperty("--m2", b); root.setProperty("--m3", c);
+  document.querySelectorAll(".sw").forEach((s) => s.setAttribute("aria-checked", s.dataset.m === spec));
+}
+
+/* ================= sound ================= */
+const Sound = (() => {
+  let ctx = null, master, wet, dry, musicBus, musicOn = false, schedId = null, nextT = 0, step = 0, melodyIdx = 7;
+  // C major pentatonic, G3 upward
+  const PENT = [196.0, 220.0, 261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51, 1567.98];
+  const pitchOf = (i) => PENT[Math.min(PENT.length - 1, (6 - ((i / 7) | 0)) + (i % 7) + 1)];
+  const api = { sfx: true };
+
+  function ensure() {
+    if (ctx) { if (ctx.state === "suspended") ctx.resume(); return true; }
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
+    ctx = new AC();
+    master = ctx.createGain(); master.gain.value = 0.8;
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 3;
+    master.connect(comp); comp.connect(ctx.destination);
+    dry = ctx.createGain(); dry.gain.value = 1; dry.connect(master);
+    // generated hall reverb
+    const conv = ctx.createConvolver(), len = ctx.sampleRate * 2.6, ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+    conv.buffer = ir; wet = ctx.createGain(); wet.gain.value = 0.32; conv.connect(wet); wet.connect(master);
+    api._rev = conv;
+    musicBus = ctx.createGain(); musicBus.gain.value = 0; musicBus.connect(dry); musicBus.connect(conv);
+    return true;
+  }
+  const out = (node, rev = 0.5) => { node.connect(dry); if (rev) { const g = ctx.createGain(); g.gain.value = rev; node.connect(g); g.connect(api._rev); } };
+
+  // marimba / kalimba-like pluck
+  function pluck(freq, t, { vol = 0.22, dur = 1.1, rev = 0.6, bus = null, bright = 1 } = {}) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    const o1 = ctx.createOscillator(); o1.type = "sine"; o1.frequency.value = freq;
+    const o2 = ctx.createOscillator(); o2.type = "sine"; o2.frequency.value = freq * 4.0;
+    const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.35 * bright, t); g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+    const o3 = ctx.createOscillator(); o3.type = "triangle"; o3.frequency.value = freq * 2;
+    const g3 = ctx.createGain(); g3.gain.setValueAtTime(0.12, t); g3.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.5);
+    o1.connect(g); o2.connect(g2); g2.connect(g); o3.connect(g3); g3.connect(g);
+    if (bus) g.connect(bus); else out(g, rev);
+    [o1, o2, o3].forEach((o) => { o.start(t); o.stop(t + dur + 0.05); });
+  }
+  // glass bell / chime
+  function chime(freq, t, vol = 0.12, dur = 2.2) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    [1, 2.76, 5.4].forEach((r, k) => {
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = freq * r;
+      const og = ctx.createGain(); og.gain.value = [1, 0.4, 0.18][k];
+      o.connect(og); og.connect(g); o.start(t); o.stop(t + dur);
+    });
+    out(g, 0.9);
+  }
+  // glass marble "tick" on plastic
+  function clack(t, vol = 0.25, pitch = 1) {
+    const len = 0.05, buf = ctx.createBuffer(1, ctx.sampleRate * len, ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 6);
+    const s = ctx.createBufferSource(); s.buffer = buf;
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 3200 * pitch; bp.Q.value = 3;
+    const g = ctx.createGain(); g.gain.value = vol;
+    s.connect(bp); bp.connect(g); out(g, 0.25); s.start(t);
+    const o = ctx.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(2600 * pitch, t); o.frequency.exponentialRampToValueAtTime(1900 * pitch, t + 0.05);
+    const og = ctx.createGain(); og.gain.setValueAtTime(vol * 0.35, t); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+    o.connect(og); out(og, 0.3); o.start(t); o.stop(t + 0.08);
+  }
+  const ok = () => api.sfx && ensure();
+  const now = () => ctx.currentTime;
+
+  api.wake = () => { ensure(); };
+  api.pick = (i) => { if (!ok()) return; const t = now(); clack(t, 0.12, 1.2); pluck(pitchOf(i), t, { vol: 0.16, dur: 0.7 }); };
+  api.deselect = () => { if (!ok()) return; pluck(PENT[2], now(), { vol: 0.08, dur: 0.4, bright: 0.3 }); };
+  api.tick = () => { if (!ok()) return; clack(now(), 0.08, 1.5); };
+  api.click = () => { if (!ok()) return; clack(now(), 0.1, 0.9); };
+  api.jump = (f, t2, n) => {
+    if (!ok()) return; const t = now();
+    const a = pitchOf(f), b = pitchOf(t2);
+    pluck(a, t, { vol: 0.15, dur: 0.6 });
+    pluck(b, t + 0.13, { vol: 0.2, dur: 1.3 });
+    // every 4th jump adds a harmony a fifth above, so a game builds into a tune
+    if (n % 4 === 0) pluck(b * 1.5, t + 0.26, { vol: 0.09, dur: 1.4 });
+  };
+  api.land = () => { if (!ok()) return; clack(now(), 0.3, 1); };
+  api.capture = (slot) => {
+    if (!ok()) return; const t = now();
+    clack(t, 0.16, 0.8);
+    for (let k = 0; k < 6; k++) clack(t + 0.22 + k * 0.06 + k * k * 0.008, 0.07 * (1 - k / 7), 0.55 + Math.random() * 0.15);
+  };
+  api.settle = () => { if (!ok()) return; clack(now(), 0.12, 0.6); };
+  api.bump = () => {
+    if (!ok()) return; const t = now();
+    const o = ctx.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(90, t + 0.18);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    o.connect(g); out(g, 0.1); o.start(t); o.stop(t + 0.25);
+    clack(t, 0.1, 0.7); clack(t + 0.09, 0.08, 0.7);
+  };
+  api.undo = () => { if (!ok()) return; const t = now(); pluck(PENT[7], t, { vol: 0.12, dur: 0.5 }); pluck(PENT[5], t + 0.09, { vol: 0.12, dur: 0.7 }); };
+  api.hint = () => { if (!ok()) return; const t = now(); chime(PENT[9], t, 0.08); chime(PENT[11], t + 0.12, 0.07); };
+  api.cascade = () => {
+    if (!ok()) return; const t = now();
+    for (let k = 0; k < 12; k++) clack(t + 0.05 + k * 0.035 + Math.random() * 0.02, 0.05 + Math.random() * 0.05, 0.8 + Math.random() * 0.5);
+    [2, 4, 5, 7].forEach((p, k) => pluck(PENT[p], t + 0.15 + k * 0.09, { vol: 0.1, dur: 1 }));
+  };
+  api.page = () => { if (!ok()) return; const t = now(); clack(t, 0.06, 0.7); pluck(PENT[8 + Math.floor(Math.random() * 4)], t + 0.03, { vol: 0.07, dur: 0.6, bright: 0.4 }); };
+  api.unlock = () => {
+    if (!ok()) return; const t = now();
+    [2, 4, 5, 7, 9, 10, 12, 14, 15].forEach((p, k) => pluck(PENT[p], t + k * 0.09, { vol: 0.15, dur: 1.8 }));
+    const e = t + 0.95;
+    [PENT[5], PENT[7], PENT[9], PENT[12], PENT[14]].forEach((f, k) => chime(f, e + k * 0.05, 0.08, 3.6));
+    [PENT[2] / 2, PENT[5] / 2].forEach((f) => pluck(f, e, { vol: 0.2, dur: 3 }));
+  };
+  api.end = () => { if (!ok()) return; const t = now(); [7, 5, 4, 2].forEach((p, k) => pluck(PENT[p], t + k * 0.16, { vol: 0.14, dur: 1.2 })); };
+  api.win = (perfect) => {
+    if (!ok()) return; const t = now();
+    const seq = perfect ? [2, 4, 5, 7, 9, 10, 12, 14] : [2, 4, 5, 7, 9];
+    seq.forEach((p, k) => { pluck(PENT[p], t + k * 0.11, { vol: 0.16, dur: 1.6 }); });
+    const e = t + seq.length * 0.11;
+    [PENT[7], PENT[9], PENT[10], PENT[12]].forEach((f, k) => chime(f, e + k * 0.03, 0.07, 3.2));
+  };
+
+  /* --- ambient music: pentatonic kalimba over a soft pad --- */
+  const BPM = 78, EIGHTH = 60 / BPM / 2;
+  const CHORDS = [[130.81, 164.81, 196.0, 246.94], [110.0, 130.81, 164.81, 196.0], [87.31, 130.81, 174.61, 220.0], [98.0, 146.83, 196.0, 246.94]];
+  function pad(freqs, t, dur) {
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 900; lp.Q.value = 0.4;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.05, t + 1.2); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.6);
+    lp.connect(g); g.connect(musicBus);
+    freqs.forEach((f) => [-4, 4].forEach((det) => {
+      const o = ctx.createOscillator(); o.type = "triangle"; o.frequency.value = f; o.detune.value = det;
+      o.connect(lp); o.start(t); o.stop(t + dur + 0.7);
+    }));
+  }
+  function schedule() {
+    while (nextT < ctx.currentTime + 0.25) {
+      const bar = Math.floor(step / 8) % 4, pos = step % 8;
+      if (pos === 0) pad(CHORDS[bar], nextT, EIGHTH * 8);
+      const play = pos === 0 || pos === 3 || pos === 6 || Math.random() < 0.28;
+      if (play) {
+        melodyIdx += [-2, -1, -1, 1, 1, 2, 0][Math.floor(Math.random() * 7)];
+        melodyIdx = Math.max(5, Math.min(13, melodyIdx));
+        pluck(PENT[melodyIdx], nextT, { vol: 0.11, dur: 1.4, bus: musicBus, bright: 0.6 });
+      }
+      if (pos === 0) pluck(CHORDS[bar][0], nextT, { vol: 0.12, dur: 2.2, bus: musicBus, bright: 0.2 });
+      nextT += EIGHTH * (pos % 2 ? 0.92 : 1.08); // gentle swing
+      step++;
+    }
+  }
+  api.toggleMusic = () => {
+    if (!ensure()) return false;
+    musicOn = !musicOn;
+    const t = ctx.currentTime;
+    musicBus.gain.cancelScheduledValues(t);
+    musicBus.gain.setValueAtTime(musicBus.gain.value, t);
+    if (musicOn) {
+      musicBus.gain.linearRampToValueAtTime(0.9, t + 1.5);
+      nextT = t + 0.1; step = 0;
+      if (!schedId) schedId = setInterval(schedule, 90);
+    } else {
+      musicBus.gain.linearRampToValueAtTime(0, t + 0.8);
+      setTimeout(() => { if (!musicOn) { clearInterval(schedId); schedId = null; } }, 900);
+    }
+    return musicOn;
+  };
+  return api;
+})();
+
+/* ================= confetti ================= */
+const fx = $("fx"), g2 = fx.getContext("2d");
+let parts = [], fxRun = false;
+function confetti(n) {
+  if (reduced) return;
+  const dpr = devicePixelRatio || 1;
+  fx.width = innerWidth * dpr; fx.height = innerHeight * dpr; g2.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const css = getComputedStyle(document.documentElement);
+  const cols = ["#ffe36a", "#f7c51e", "#fff4c2", css.getPropertyValue("--m1").trim(), "#ffffff"];
+  const r = boardEl.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = 4 + Math.random() * 9;
+    parts.push({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 6, s: 4 + Math.random() * 6, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4, c: cols[i % cols.length], life: 0, round: Math.random() < 0.35 });
+  }
+  if (!fxRun) { fxRun = true; requestAnimationFrame(loop); }
+  function loop() {
+    g2.clearRect(0, 0, innerWidth, innerHeight);
+    parts = parts.filter((p) => p.life < 240 && p.y < innerHeight + 30);
+    for (const p of parts) {
+      p.life++; p.vy += 0.22; p.vx *= 0.985; p.vy *= 0.985; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      g2.save(); g2.translate(p.x, p.y); g2.rotate(p.rot); g2.fillStyle = p.c; g2.globalAlpha = Math.min(1, (240 - p.life) / 60);
+      if (p.round) { g2.beginPath(); g2.arc(0, 0, p.s / 2, 0, 7); g2.fill(); } else g2.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2);
+      g2.restore();
+    }
+    if (parts.length) requestAnimationFrame(loop); else { fxRun = false; g2.clearRect(0, 0, innerWidth, innerHeight); }
+  }
+}
+
+/* ================= home screen ================= */
+let pausedAt = 0;
+const capacitor = window.Capacitor;
+const nativeApp = !!(capacitor && capacitor.isNativePlatform && capacitor.isNativePlatform() && capacitor.Plugins && capacitor.Plugins.App);
+
+(function drawMini() {
+  const mini = $("mini");
+  for (let i = 0; i < 49; i++) {
+    const r = (i / 7) | 0, c = i % 7;
+    if (!CROSS(r, c)) continue;
+    const dot = document.createElement("i");
+    if (i === CENTER) dot.className = "gap";
+    dot.style.left = (50 + (c - 3) * 11.4 - 4.2) + "%";
+    dot.style.top = (50 + (r - 3) * 11.4 - 4.2) + "%";
+    mini.appendChild(dot);
+  }
+})();
+
+const inProgress = () => !over && (moves > 0 || (mode === "french" && !picking));
+function syncHome() {
+  const going = inProgress(), n = englishWins(), unlocked = frenchUnlocked();
+  $("hContinue").hidden = !going;
+  if (going) $("hContinue").textContent = `Continue ${mode === "french" ? "French" : "regular"} game`;
+  $("hEnglish").textContent = going ? "New regular game" : "Play regular Brainvita";
+  $("hEnglish").classList.toggle("primary", !going);
+  $("hFrench").classList.toggle("locked", !unlocked);
+  $("hFrench").querySelector(".lock").style.display = unlocked ? "none" : "";
+  $("hFrenchLbl").textContent = unlocked ? (going ? "New French game" : "Original French Brainvita")
+    : `Original French · ${Math.min(n, UNLOCK_WINS)}/${UNLOCK_WINS} wins`;
+  $("hSound").setAttribute("aria-pressed", Sound.sfx);
+  $("hSound").textContent = Sound.sfx ? "Sound on" : "Sound off";
+  const music = $("bMusic").getAttribute("aria-pressed") === "true";
+  $("hMusic").setAttribute("aria-pressed", music);
+  $("hMusic").textContent = music ? "Music on" : "Music off";
+  $("hExit").hidden = !nativeApp;
+}
+function showHome(animate = true) {
+  closeSheet();
+  if (timerId) { clearInterval(timerId); timerId = null; pausedAt = Date.now(); }
+  syncHome();
+  const h = $("home");
+  h.hidden = false; h.classList.remove("leaving");
+  if (animate) { h.classList.remove("entering"); void h.offsetWidth; h.classList.add("entering"); Sound.deselect(); }
+  const first = h.querySelector(".menu .btn:not([hidden])"); first && first.focus({ preventScroll: true });
+}
+function hideHome() {
+  const h = $("home");
+  if (pausedAt && startTime && !over) { startTime += Date.now() - pausedAt; timerId = setInterval(tick, 500); }
+  pausedAt = 0;
+  h.classList.remove("entering"); h.classList.add("leaving");
+  setTimeout(() => { h.hidden = true; h.classList.remove("leaving"); }, reduced ? 0 : 330);
+}
+function playFromHome(m) {
+  Sound.wake();
+  if (m === "french" && !frenchUnlocked()) {
+    const b = $("hFrench"); b.classList.remove("nudge"); void b.offsetWidth; b.classList.add("nudge");
+    b.animate([{ transform: "translateX(-6px)" }, { transform: "translateX(6px)" }, { transform: "none" }], { duration: 300 });
+    Sound.bump();
+    $("hFrenchLbl").textContent = `Win ${UNLOCK_WINS - englishWins()} more regular games to unlock`;
+    return;
+  }
+  hideHome();
+  pausedAt = 0;
+  if (m !== mode) { mode = m; store.set("brainvita.mode", m); buildGeometry(); buildHoles(); syncModes(); }
+  setTimeout(() => newGame(true), reduced ? 0 : 200);
+}
+function confirmExit() {
+  Sound.click();
+  openSheet(`<div class="panel" role="dialog" aria-modal="true" aria-labelledby="exT" style="max-width:340px;text-align:center">
+    <h2 id="exT" style="margin-bottom:8px">Leave Brainvita?</h2>
+    <p style="color:var(--muted);margin:0 0 16px">Your wins and Hall of Fame are saved.</p>
+    <div class="row" style="display:flex;gap:8px;justify-content:center">
+      <button class="btn" type="button" data-close>Stay</button>
+      <button class="btn primary" type="button" id="exYes">Exit</button>
+    </div></div>`, () => { $("exYes").onclick = () => capacitor.Plugins.App.exitApp(); });
+}
+// Android back button / gesture: close a panel, then go home, then ask to exit
+if (nativeApp) {
+  capacitor.Plugins.App.addListener("backButton", () => {
+    if (!$("sheet").hidden) closeSheet();
+    else if ($("home").hidden) showHome();
+    else confirmExit();
+  });
+}
+$("bBack").onclick = () => showHome();
+$("hContinue").onclick = () => { Sound.wake(); Sound.click(); hideHome(); };
+$("hEnglish").onclick = () => playFromHome("english");
+$("hFrench").onclick = () => playFromHome("french");
+$("hHof").onclick = () => { Sound.wake(); showHof(); };
+$("hStory").onclick = () => { Sound.wake(); showStory(); };
+$("hSound").onclick = () => { $("bSound").click(); syncHome(); };
+$("hMusic").onclick = () => { $("bMusic").click(); syncHome(); };
+$("hExit").onclick = confirmExit;
+
+/* ================= boot ================= */
+const savedMarble = store.get("brainvita.marble"); if (savedMarble) setMarble(savedMarble);
+if (store.get("brainvita.sfx") === "0") { Sound.sfx = false; $("bSound").setAttribute("aria-pressed", "false"); }
+if (store.get("brainvita.mode") === "french" && frenchUnlocked()) mode = "french";
+buildGeometry(); buildHoles(); syncModes();
+newGame(false);
+showHome(false);
+})();
+</script>
+
+<script>
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+</body>
+</html>
